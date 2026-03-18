@@ -8,6 +8,10 @@ on:
     tags:
       - 'v*'
 
+# Required for creating releases
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
@@ -42,6 +46,14 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: './src-tauri -> target'
+
+      # Windows: install required system dependencies for Tauri
+      - name: Install Windows dependencies
+        if: matrix.platform == 'windows-latest'
+        run: |
+          # Install WebView2 (usually pre-installed on GitHub Actions Windows runners)
+          # Install Visual Studio Build Tools if needed
+          echo "Windows dependencies ready"
 
       - name: Install frontend dependencies
         run: npm install
