@@ -12,26 +12,27 @@ permissions:
   contents: write
 
 jobs:
-  # Step 1: Create the GitHub Release first (only once)
+  # Step 1: Create the GitHub Release (no build needed)
   create-release:
     runs-on: ubuntu-latest
     outputs:
-      release_id: ${{ steps.create-release.outputs.releaseId }}
+      release_id: ${{ steps.create.outputs.result }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Create release
-        id: create-release
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create release via GitHub API
+        id: create
+        uses: actions/github-script@v7
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: '健康提醒 ${{ github.ref_name }}'
-          releaseBody: '请前往 Assets 下载对应平台的安装包。'
-          releaseDraft: true
-          prerelease: false
+          script: |
+            const { data } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: context.ref.replace('refs/tags/', ''),
+              name: `健康提醒 ${context.ref.replace('refs/tags/', '')}`,
+              body: '请前往 Assets 下载对应平台的安装包。',
+              draft: true,
+              prerelease: false,
+            });
+            return data.id;
 
   # Step 2: Build on each platform and upload to the release
   build:
