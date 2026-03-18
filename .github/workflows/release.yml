@@ -8,12 +8,34 @@ on:
     tags:
       - 'v*'
 
-# Required for creating releases
 permissions:
   contents: write
 
 jobs:
+  # Step 1: Create the GitHub Release first (only once)
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.create-release.outputs.releaseId }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create release
+        id: create-release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: '健康提醒 ${{ github.ref_name }}'
+          releaseBody: '请前往 Assets 下载对应平台的安装包。'
+          releaseDraft: true
+          prerelease: false
+
+  # Step 2: Build on each platform and upload to the release
   build:
+    needs: create-release
     strategy:
       fail-fast: false
       matrix:
@@ -47,25 +69,13 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
-      # Windows: install required system dependencies for Tauri
-      - name: Install Windows dependencies
-        if: matrix.platform == 'windows-latest'
-        run: |
-          # Install WebView2 (usually pre-installed on GitHub Actions Windows runners)
-          # Install Visual Studio Build Tools if needed
-          echo "Windows dependencies ready"
-
       - name: Install frontend dependencies
         run: npm install
 
-      - name: Build and release
+      - name: Build and upload
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: '健康提醒 ${{ github.ref_name }}'
-          releaseBody: '请前往 Assets 下载对应平台的安装包。'
-          releaseDraft: true
-          prerelease: false
+          releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.args }}
